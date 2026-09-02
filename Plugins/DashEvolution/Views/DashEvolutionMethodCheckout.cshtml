@@ -1,0 +1,89 @@
+@using BTCPayServer.Payments
+@using BTCPayServer.Plugins.DashEvolution
+@using BTCPayServer.Abstractions.Services
+@inject Safe Safe
+@model BTCPayServer.Models.InvoicingModels.CheckoutModel
+
+@* File: Plugins/DashEvolution/Views/DashEvolutionMethodCheckout.cshtml
+   UI extension at "checkout-end": registers the DashEvolutionCheckoutBody Vue
+   component. The checkout page <component :is="paymentMethodComponent"> resolves
+   to this component when CheckoutBodyComponentName = "DashEvolutionCheckoutBody"
+   (set by DashEvolutionCheckoutModelExtension). Renders a QR code (dash: URI),
+   the address (copyable), and a "Pay in wallet" link.
+
+   Transport tabs: when the invoice carries a per-invoice Transparent (DIP-17
+   platform) address, a "Transparent Address | Shielded Address" switcher lets
+   the customer pick the transport — the QR, address, and pay-in-wallet link
+   follow the active tab (transparentAddress/transparentPaymentLink and
+   shieldedAddress/shieldedPaymentLink are injected via the model's
+   AdditionalData JsonExtensionData bag by DashEvolutionCheckoutModelExtension).
+   Without a Transparent address the component renders the single-address
+   layout exactly as before. *@
+
+<template id="@DashEvolutionCheckoutModelExtension.CheckoutBodyComponentName">
+    <div class="payment-box">
+        <div v-if="hasTabs" class="btn-group w-100 mb-3 dashe-transport-tabs" role="group" aria-label="Payment transport">
+            <button type="button" class="btn" :class="tabClass('transparent')" v-on:click="currentTab = 'transparent'">Transparent Address</button>
+            <button type="button" class="btn" :class="tabClass('shielded')" v-on:click="currentTab = 'shielded'">Shielded Address</button>
+        </div>
+        <div v-if="hasTabs && activeTab === 'transparent'" class="alert alert-warning small mt-3 mb-0">
+            Pay with a Platform (Evolution) wallet — credits transfer only. A regular on-chain (Core) payment to this address is not detected by this invoice.
+        </div>
+        <div v-if="displayUrlQR" class="qr-container clipboard-button" :data-qr-value="displayUrlQR" :data-clipboard="displayUrl" data-clipboard-confirm-element="#Address_@Model.PaymentMethodId [data-clipboard]">
+            <div>
+                <qrcode :value="displayUrlQR" tag="div" :options="qrOptions" />
+            </div>
+            <img class="qr-icon" :src="model.cryptoImage" :alt="model.paymentMethodName"/>
+        </div>
+        <div v-if="displayAddress" class="input-group mt-3">
+            <div class="form-floating" id="Address_@Model.PaymentMethodId">
+                <vc:truncate-center text="displayAddress" is-vue="true" padding="15" elastic="true" classes="form-control-plaintext" />
+                <label v-t="{ path: 'address', args: { paymentMethod: model.paymentMethodName }}"></label>
+            </div>
+        </div>
+        <a v-if="displayUrl" class="btn btn-primary rounded-pill w-100 mt-4" id="PayInWallet" target="_blank"
+           :href="displayUrl" v-t="'pay_in_wallet'"></a>
+    </div>
+</template>
+
+<script>
+    Vue.component(@Safe.Json(DashEvolutionCheckoutModelExtension.CheckoutBodyComponentName), {
+        props: ['model', 'nfcSupported', 'nfcScanning', 'nfcErrorMessage', 'nfcWarningMessage'],
+        template: @Safe.Json("#" + DashEvolutionCheckoutModelExtension.CheckoutBodyComponentName),
+        components: {
+            qrcode: VueQrcode
+        },
+        data () {
+            return { currentTab: undefined };
+        },
+        computed: {
+            hasTabs () {
+                return !!this.model.transparentAddress;
+            },
+            activeTab () {
+                // Default tab: Transparent when both transports are available
+                // (matches the handler's Destination preference), else the
+                // single legacy layout driven by model.address.
+                return this.currentTab || (this.hasTabs ? 'transparent' : 'default');
+            },
+            displayAddress () {
+                if (this.activeTab === 'transparent') return this.model.transparentAddress;
+                if (this.activeTab === 'shielded') return this.model.shieldedAddress || this.model.address;
+                return this.model.address;
+            },
+            displayUrl () {
+                if (this.activeTab === 'transparent') return this.model.transparentPaymentLink || this.model.invoiceBitcoinUrl;
+                if (this.activeTab === 'shielded') return this.model.shieldedPaymentLink || this.model.invoiceBitcoinUrl;
+                return this.model.invoiceBitcoinUrl;
+            },
+            displayUrlQR () {
+                return this.displayUrl;
+            }
+        },
+        methods: {
+            tabClass (tab) {
+                return this.activeTab === tab ? 'btn-primary' : 'btn-outline-primary';
+            }
+        }
+    });
+</script>

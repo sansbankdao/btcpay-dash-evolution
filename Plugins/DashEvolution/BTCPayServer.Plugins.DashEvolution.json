@@ -1,0 +1,17 @@
+{
+  "Identifier": "BTCPayServer.Plugins.DashEvolution",
+  "Name": "Dash Evolution",
+  "Version": "1.0.0",
+  "Description": "This plugin extends BTCPay Server to enable users to receive payments via Dash on the Evolution Platform (shielded Orchard pool and Platform Addresses).",
+  "SystemPlugin": false,
+  "Dependencies": [
+    {
+      "Identifier": "BTCPayServer",
+      "Condition": ">=2.3.7"
+    }
+  ],
+  "Documentation": "https://github.com/sansbankdao/btcpay-dash-evolution",
+  "Source": "https://github.com/sansbankdao/btcpay-dash-evolution",
+  "Author": "Sansbank DAO",
+  "AuthorLink": "https://github.com/sansbankdao"
+}

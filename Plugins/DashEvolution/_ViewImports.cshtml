@@ -1,0 +1,15 @@
+@* File: Plugins/DashEvolution/_ViewImports.cshtml *@
+@* REQUIRED for the dynamic-plugin build. Without these @addTagHelper
+   directives, views compiled into this assembly do NOT get:
+     1. CSPInlineScriptTagHelper (BTCPayServer.Abstractions) — which nonces
+        every inline <script> so it passes the checkout page's
+        "script-src 'self' 'nonce-*'" Content-Security-Policy. Without the
+        nonce the browser BLOCKS the DashEvolutionCheckoutBody Vue component
+        registration and the checkout renders no QR code / address.
+     2. The <vc:*> ViewComponent tag helpers (BTCPayServer), e.g.
+        <vc:truncate-center> in DashEvolutionMethodCheckout.cshtml.
+   In the built-in (fork) build this happens implicitly via BTCPayServer's
+   root _ViewImports.cshtml; a standalone plugin must declare it itself. *@
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+@addTagHelper *, BTCPayServer
+@addTagHelper *, BTCPayServer.Abstractions
