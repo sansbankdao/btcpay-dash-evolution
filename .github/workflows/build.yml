@@ -1,0 +1,96 @@
+name: Build & Test
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  RUST_TOOLCHAIN: '1.92.0'
+
+jobs:
+  build-plugin:
+    runs-on: [self-hosted, evorunner]
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup .NET PATH
+        run: echo "$HOME/dotnet" >> $GITHUB_PATH
+
+      - name: Restore dependencies
+        run: dotnet restore Plugins/DashEvolution/BTCPayServer.Plugins.DashEvolution.csproj
+
+      - name: Build plugin
+        run: dotnet build Plugins/DashEvolution/BTCPayServer.Plugins.DashEvolution.csproj -c Release --no-restore
+
+      # Artifact upload disabled — GitHub free tier has 500MB storage limit.
+      # The plugin DLL is available in the runner workspace for immediate use.
+      # For releases, the plugin is packaged manually and attached to GitHub Releases.
+      # - name: Upload plugin artifact
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: btcpayserver-dashe-plugin
+      #     path: Plugins/DashEvolution/bin/Release/net10.0/
+
+  build-native:
+    runs-on: [self-hosted, evorunner]
+    # NOTE: This job is disabled by default. The 86MB .so exceeds GitHub's
+    # free artifact storage (500MB). For native lib distribution:
+    #   1. Build locally or on a dedicated build machine
+    #   2. Upload to GitHub Releases manually (100MB file limit OK)
+    #   3. Or use DASHE_NATIVE_LIB env var pointing to a pre-built .so
+    # Enable this job only when the runner has 16GB+ RAM and artifact
+    # storage is not a concern (e.g., self-hosted artifact server).
+    if: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust PATH
+        run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Clone Dash Platform
+        run: |
+          if [ ! -d "$HOME/platform" ]; then
+            git clone --depth 1 --branch v4.2-dev https://github.com/dashpay/platform $HOME/platform
+          fi
+
+      - name: Build native library
+        run: |
+          cd $HOME/platform
+          cargo build --release --features shielded -p platform-wallet-ffi
+
+  test:
+    runs-on: [self-hosted, evorunner]
+    needs: [build-plugin]
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup .NET PATH
+        run: echo "$HOME/dotnet" >> $GITHUB_PATH
+
+      - name: Run tests with coverage
+        run: |
+          dotnet test Plugins/DashEvolution.Tests/BTCPayServer.Plugins.DashEvolution.Tests.csproj \
+            -c Release \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./coverage \
+            --logger trx
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage/**/coverage.cobertura.xml
+          flags: unittests
+          name: codecov-dashe
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

@@ -1,0 +1,46 @@
+@using BTCPayServer.Payments
+@using BTCPayServer.Plugins.DashEvolution
+@using BTCPayServer.Abstractions.Services
+@inject Safe Safe
+@model BTCPayServer.Models.InvoicingModels.CheckoutModel
+
+@* File: Plugins/DashEvolution/Views/DashEvolutionMethodCheckout.cshtml
+   UI extension at "checkout-end": registers the DashEvolutionCheckoutBody Vue
+   component. The checkout page <component :is="paymentMethodComponent"> resolves
+   to this component when CheckoutBodyComponentName = "DashEvolutionCheckoutBody"
+   (set by DashEvolutionCheckoutModelExtension). Renders a QR code (dash: URI),
+   the shielded address (copyable), and a "Pay in wallet" link — the same
+   structure as Bitcoin/BitcoinLikeMethodCheckout.cshtml but without the LN
+   fallback / PayJoin / bech32-upper-casing concerns. *@
+
+<template id="@DashEvolutionCheckoutModelExtension.CheckoutBodyComponentName">
+    <div class="payment-box">
+        <div v-if="model.invoiceBitcoinUrlQR" class="qr-container clipboard-button" :data-qr-value="model.invoiceBitcoinUrlQR" :data-clipboard="model.invoiceBitcoinUrl" data-clipboard-confirm-element="#Address_@Model.PaymentMethodId [data-clipboard]">
+            <div>
+                <qrcode :value="model.invoiceBitcoinUrlQR" tag="div" :options="qrOptions" />
+            </div>
+            <img class="qr-icon" :src="model.cryptoImage" :alt="model.paymentMethodName"/>
+        </div>
+        <div v-if="model.address" class="input-group mt-3">
+            <div class="form-floating" id="Address_@Model.PaymentMethodId">
+                <vc:truncate-center text="model.address" is-vue="true" padding="15" elastic="true" classes="form-control-plaintext" />
+                <label v-t="{ path: 'address', args: { paymentMethod: model.paymentMethodName }}"></label>
+            </div>
+        </div>
+        <a v-if="model.invoiceBitcoinUrl" class="btn btn-primary rounded-pill w-100 mt-4" id="PayInWallet" target="_blank"
+           :href="model.invoiceBitcoinUrl" v-t="'pay_in_wallet'"></a>
+    </div>
+</template>
+
+<script>
+    Vue.component(@Safe.Json(DashEvolutionCheckoutModelExtension.CheckoutBodyComponentName), {
+        props: ['model', 'nfcSupported', 'nfcScanning', 'nfcErrorMessage', 'nfcWarningMessage'],
+        template: @Safe.Json("#" + DashEvolutionCheckoutModelExtension.CheckoutBodyComponentName),
+        components: {
+            qrcode: VueQrcode
+        },
+        data () {
+            return { currentTab: undefined };
+        }
+    });
+</script>
